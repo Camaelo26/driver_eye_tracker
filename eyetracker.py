@@ -2,6 +2,9 @@ import cv2
 import dlib
 import numpy as np
 from scipy.spatial import distance as dist
+from playsound import playsound
+import threading
+import time
 
 # Initialize face detector and facial landmarks predictor
 detector = dlib.get_frontal_face_detector()
@@ -15,6 +18,10 @@ def calculate_EAR(eye):
     ear = (A + B) / (2.0 * C)
     return ear
 
+# Function to play alarm sound in a separate thread
+def play_alarm():
+    playsound('alarm_sound.mp3')
+
 # Start webcam feed
 cap = cv2.VideoCapture(0)
 
@@ -23,12 +30,33 @@ if not cap.isOpened():
     print("Error: Could not open webcam.")
     exit()
 
+# Calculate FPS
+start_time = time.time()
+num_frames = 100
+for i in range(num_frames):
+    ret, frame = cap.read()
+    if not ret:
+        print("Error: Failed to capture image.")
+        break
+end_time = time.time()
+seconds = end_time - start_time
+fps = num_frames / seconds
+print(f"Calculated FPS: {fps}")
+
+# Set alarm trigger frames for a 5-second duration
+ALARM_TRIGGER_FRAMES = int(fps * 3)  # Adjust for 5 seconds
+print(f"Alarm will trigger after {ALARM_TRIGGER_FRAMES} continuous closed-eye frames.")
+
 # Calibration: Capture the EAR when eyes are fully open
 print("Keep your eyes open for calibration...")
 EYE_AR_THRESHOLD = None
 calibration_frames = 30
 ear_sum = 0
 frames_counter = 0
+
+# To track closed eye time and alarm status
+CLOSED_EYES_FRAMES = 0
+alarm_triggered = False
 
 while True:
     ret, frame = cap.read()
@@ -57,7 +85,7 @@ while True:
             ear_sum += avg_EAR
             frames_counter += 1
             if frames_counter >= calibration_frames:
-                # Set the threshold to a percentage (e.g., 85%) of the average open-eye EAR
+                # Set the threshold to a percentage (e.g., 80%) of the average open-eye EAR
                 EYE_AR_THRESHOLD = 0.80 * (ear_sum / calibration_frames)
                 print(f"Calibration completed. Threshold set to: {EYE_AR_THRESHOLD}")
         else:
@@ -69,8 +97,18 @@ while True:
 
             # Check if eyes are closed
             if avg_EAR < EYE_AR_THRESHOLD:
+                CLOSED_EYES_FRAMES += 1
                 cv2.putText(frame, "Eyes Closed", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                
+                # Trigger alarm if eyes have been closed for the defined duration
+                if CLOSED_EYES_FRAMES >= ALARM_TRIGGER_FRAMES:
+                    # Start the alarm sound in a new thread
+                    threading.Thread(target=play_alarm).start()
+                    alarm_triggered = True  # Mark alarm as triggered
+                    CLOSED_EYES_FRAMES = 0  # Reset frames counter to allow retrigger after 5 seconds
             else:
+                CLOSED_EYES_FRAMES = 0  # Reset counter if eyes are open
+                alarm_triggered = False  # Reset the alarm trigger flag
                 cv2.putText(frame, "Eyes Open", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
     # Display the frame with EAR and eye status
@@ -82,3 +120,5 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+
+#python eyetracker.py to start
