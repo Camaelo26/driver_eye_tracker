@@ -1,0 +1,17 @@
+eye_tracker/shape_predictor_68_face_landmarks.dat
+eye_tracker/shape_predictor_68_face_landmarks.dat
+eye_tracker/myenv/
+
+
+# Ignore compiled Python files
+*.pyc
+__pycache__/
+
+# Ignore Node.js modules (for the frontend)
+node_modules/
+frontend/DrowsinessApp/node_modules/
+
+# Ignore yarn lock files (if not needed)
+yarn.lock
+
+server/venv/
